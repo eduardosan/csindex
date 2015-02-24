@@ -1,0 +1,49 @@
+[Daemon]
+pidfile_path = /var/run/csindex.pid
+cassandra_cluster = 127.0.0.1
+
+# Begin logging configuration
+[loggers]
+keys = root, cocar, sqlalchemy
+
+[handlers]
+keys = file, console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = DEBUG
+handlers = file
+
+[logger_cocar]
+level = DEBUG
+handlers =
+qualname = cocar
+
+[logger_sqlalchemy]
+level = INFO
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = DEBUG
+formatter = generic
+
+[handler_file]
+class = handlers.RotatingFileHandler
+args = ('/srv/cocar-agente/cocar-agente.log', 'a', int(20*1024*1024), 10)
+level = DEBUG
+formatter = generic
+
+[formatter_generic]
+format = %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s
+datefmt = %H:%M:%S
+# End logging configuration
