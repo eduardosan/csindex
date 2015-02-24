@@ -4,7 +4,7 @@ __author__ = 'eduardo'
 
 import sys
 import logging
-from .daemon import Daemon
+from .sync import Sync
 from . import config
 
 config.setup_config()
@@ -12,7 +12,7 @@ config.setup_config()
 log = logging.getLogger()
 
 if __name__ == "__main__":
-    daemon = Daemon(config.PIDFILE_PATH)
+    daemon = Sync(config.PIDFILE_PATH)
 
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:

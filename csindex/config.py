@@ -3,6 +3,9 @@
 __author__ = 'eduardo'
 
 import configparser
+from cassandra.cluster import Cluster
+from elasticsearch import Elasticsearch
+
 
 def setup_config():
     """
@@ -12,6 +15,9 @@ def setup_config():
 
     global PIDFILE_PATH
     global CASSANDRA_CLUSTER
+    global ES
+    global ES_INDEX
+    global session
 
     INI_FILE = 'production.ini'
 
@@ -20,4 +26,7 @@ def setup_config():
 
     # GEt pidfile from config
     PIDFILE_PATH = config.get('Daemon', 'pidfile_path')
-    CASSANDRA_CLUSTER = config.get('Daemon', 'cassandra_cluster')
+    CASSANDRA_CLUSTER = Cluster(config.get('Daemon', 'cassandra_cluster'))
+    ES = Elasticsearch(config.get('Daemon', 'es_url'))
+    ES_INDEX = config.get('Daemon', 'es_index')
+    session = CASSANDRA_CLUSTER.connect(ES_INDEX)

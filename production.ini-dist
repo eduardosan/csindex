@@ -1,6 +1,7 @@
 [Daemon]
 pidfile_path = /var/run/csindex.pid
 cassandra_cluster = 127.0.0.1
+es_url = http://localhost:9200/
 
 # Begin logging configuration
 [loggers]
