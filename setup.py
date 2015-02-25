@@ -9,7 +9,8 @@ requires = [
     'ConfigParser',
     'requests',
     'cassandra-driver',
-    'elasticsearch'
+    'elasticsearch',
+    'blist'
 ]
 
 version = '0.1'
