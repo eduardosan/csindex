@@ -18,15 +18,17 @@ def setup_config():
     global ES
     global ES_INDEX
     global session
+    global timer
 
     INI_FILE = 'production.ini'
 
     config = configparser.ConfigParser()
     config.read(INI_FILE)
 
-    # GEt pidfile from config
+    # Get configuration
     PIDFILE_PATH = config.get('Daemon', 'pidfile_path')
     CASSANDRA_CLUSTER = Cluster(config.get('Daemon', 'cassandra_cluster'))
     ES = Elasticsearch(config.get('Daemon', 'es_url'))
     ES_INDEX = config.get('Daemon', 'es_index')
     session = CASSANDRA_CLUSTER.connect(ES_INDEX)
+    TIMER = int(config.get('Daemon', 'timer'))

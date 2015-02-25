@@ -6,7 +6,8 @@ import logging
 import time
 from .daemon import Daemon
 from . import config
-from cassandra.query import dict_factory
+from .model import es
+from .model import cs
 
 log = logging.getLogger()
 
@@ -15,17 +16,14 @@ class Sync(Daemon):
     """
     Classe responsável pela sincronia dos documentos
     """
-    def __init__(self):
+    def __init__(self, **args):
         """
         Método construtor
         """
-        Daemon.__init__(self)
-        self.es_index = config.ES_INDEX
-        self.es = config.ES
-        self.session = config.session
-        self.session.row_factory = dict_factory
+        super(Sync, self).__init__(**args)
 
-    def process_es(self):
+    @staticmethod
+    def process_es():
         """
         Procedimento que processa os documentos do Elastic Search para
         sincronizar com o Cassandra.
@@ -33,104 +31,82 @@ class Sync(Daemon):
         Regra: o mais atual sempre ganha
         :return:
         """
-        response = self.es.search(index=self.es_index, body={"query": {"match_all": {}}})
+        response = es.ES.get_all()
         hits = response.get('hits')
         if hits is not None:
             for res in hits['hits']:
                 # Now try to find document in Cassandra
-                cassandra_doc = self.get_cassandra(int(res['_id']))
+                cassandra = cs.CS(
+                    document_id=int(res['_id']),
+                    content=res['_source']
+                )
+                cassandra_doc = cassandra.get()
                 if cassandra_doc is None:
                     # Add document in Cassandra
                     log.info("Documento %s não encontrado no Cassandra. Adicionando...", res['_id'])
-                    self.add_cassandra(res['_source'])
+                    cassandra.add()
                 else:
                     # Check which is newer
-                    if cassandra_doc['document_date'] > res['_source']['document_date']:
+                    if cassandra.document_date > res['_source']['document_date']:
                         log.info("Documento do Cassandra mais atual. Adicionando %s no ES", res['_id'])
-                        self.update_es(res)
+                        es_obj = es.ES(
+                            document_id=cassandra_doc['document_id'],
+                            content=cassandra_doc['content'],
+                            document_date=cassandra_doc['document_date']
+                        )
+                        es_obj.update()
                     else:
                         log.info("Documento do ES mais atual ou data igual. Atualiza %s no cassandra", res['_id'])
-                        self.update_cassandra(res)
+                        cassandra.update()
 
         return True
 
-    def get_cassandra(self, id_doc):
+    @staticmethod
+    def process_cassandra():
         """
-        Get document on Cassandra
-
-        :param id_doc: Document ID
-        :return: dict with document data
+        Processa documentos do Cassandra
         """
-        result = self.session.execute("SELECT content FROM %s WHERE id_doc = %d LIMIT 1", (self.es_index, id_doc))
+        response = cs.CS.get_all()
+        if type(response) == list and len(response) > 0:
+            # Processa somente se houve respostas
+            for elm in response:
+                # Busca primeiro no ES
+                es_obj = es.ES(
+                    document_id=elm['document_id'],
+                    content=elm['content']
+                )
+                es_doc = es_obj.get()
+                if es_doc is None:
+                    log.info("Documento %s não encontrado no ES. Adicionando...", elm['document_id'])
+                    es_obj.add()
+                else:
+                    # Verifica o mais atual
+                    if es_obj.document_date >= elm['document_date']:
+                        log.info("Documento do ES mais atual ou igual. Adicionando %s no Cassandra", elm['document_id'])
+                        cassandra = cs.CS(
+                            document_id=es_doc['_id'],
+                            document_date=es_doc['_source']['document_date'],
+                            content=es_doc['_source']
+                        )
+                        cassandra.update()
+                    else:
+                        log.info("Documento do Cassandra mais atual. Atualiza %s no ES", elm['document_id'])
+                        es_obj.update()
 
-        # Add document date as timestamp
-        doc_seconds = self.session.execute("SELECT WRITETIME (content) FROM %s WHERE id_doc = %d LIMIT 1", (self.es_index, id_doc))
-        result['document_date'] = time.gmtime(doc_seconds)
+        return True
 
-        return result
-
-    def add_es(self, doc):
+    def run(self):
         """
-        Add document on ES
-
-        :param doc: Document JSON
-        :return: Result
+        Executa a sincronia entre os dois bancos
         """
-        result = self.es.create(
-            index=self.es,
-            doc_type='document',
-            body=doc
-        )
+        log.info("Iniciando módulo de sincronia ES e Cassandra")
+        while True:
+            log.info("Iniciando sincronia no Elastic Search")
+            self.process_es()
 
-        return result
+            log.info("Iniciando sincronia do Cassandra")
+            self.process_cassandra()
 
-    def add_cassandra(self, document):
-        """
-        Add document on Cassandra
-
-        :param document: Document to be inserted
-        :return: Insertion result
-        """
-
-        result = self.session.execute(
-            """
-            INSERT INTO %s (id_doc, content)
-            VALUES (%d, %s)
-            """,
-            (self.es_index, document['_id'], document['_source'])
-        )
-
-        return result
-
-    def update_cassandra(self, document):
-        """
-        Update document on Cassandra
-
-        :param document: Document content
-        :return:
-        """
-        result = self.session.execute(
-            """
-            UPDATE %s
-            SET content = %s
-            WHERE  id_doc= %d
-            """,
-            (self.es_index, document['_source'], document['_id'])
-        )
-
-        return result
-
-    def update_es(self, document):
-        """
-        Update document on ES
-
-        :param document: Document JSON
-        :return: Results
-        """
-        result = self.es.update(
-            index=self.es_index,
-            doc_type='document',
-            body=document
-        )
-
-        return result
+            # Tempo de espera
+            log.info("Execução finalizada. Esperando %s segundos", config.TIMER)
+            time.sleep(config.TIMER)

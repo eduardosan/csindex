@@ -3,6 +3,9 @@
 __author__ = 'eduardo'
 
 import uuid
+import logging
+
+log = logging.getLogger()
 
 
 class Document(object):
@@ -10,13 +13,13 @@ class Document(object):
     Documento a ser sicnronizado nas várias bases de dados
     """
     def __init__(self,
-                 document_date,
-                 document_origin,
+                 content,
+                 document_date=None,
                  document_id=None):
         """
-        :param document_id: Identificador do documento
+        :param content: De onde veio a última sincronia
         :param document_date: Data do documento
-        :param document_origin: De onde veio a última sincronia
+        :param document_id: Identificador do documento
         """
         # Auto generate UUID if it is not supplied
         if document_id is None:
@@ -24,4 +27,4 @@ class Document(object):
 
         self.document_id = document_id
         self.document_date = document_date
-        self.document_origin = document_origin
+        self.content = content
