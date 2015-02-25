@@ -4,15 +4,16 @@ __author__ = 'eduardo'
 
 import sys
 import logging
-from .sync import Sync
-from . import config
+from csindex import sync
+from csindex import config
 
 config.setup_config()
 
 log = logging.getLogger()
 
 if __name__ == "__main__":
-    daemon = Sync(config.PIDFILE_PATH)
+
+    daemon = sync.Sync(config.PIDFILE_PATH)
 
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:
