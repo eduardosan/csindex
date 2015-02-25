@@ -7,7 +7,7 @@ from cassandra.cluster import Cluster
 from elasticsearch import Elasticsearch
 
 
-def setup_config():
+def setup_config(ini_file='production.ini'):
     """
     Setup configuration as global vars
     """
@@ -20,7 +20,7 @@ def setup_config():
     global session
     global TIMER
 
-    INI_FILE = 'production.ini'
+    INI_FILE = ini_file
 
     config = configparser.ConfigParser()
     config.read(INI_FILE)

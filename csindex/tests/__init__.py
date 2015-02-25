@@ -7,10 +7,8 @@ import os.path
 import logging
 from .. import config
 
-config.setup_config()
-
 # Set to test environment
-config.INI_FILE = 'test.ini'
+config.setup_config('test.ini')
 
 test_dir = os.path.dirname(os.path.realpath(__file__))
 log = logging.getLogger()

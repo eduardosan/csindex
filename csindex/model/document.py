@@ -28,3 +28,21 @@ class Document(object):
         self.document_id = document_id
         self.document_date = document_date
         self.content = content
+
+    @property
+    def content(self):
+        """
+        Getter para o content
+        """
+        return self._content
+
+    @content.setter
+    def content(self, value):
+        """
+        Setter para o content
+        """
+        if type(value) != dict:
+            log.error("Erro no atributo content. Ele deve receber umtipo dict mas recebeu %s", type(value))
+            raise TypeError
+        else:
+            self._content = value
