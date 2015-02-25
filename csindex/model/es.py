@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 __author__ = 'eduardo'
 import logging
+from elasticsearch.client import IndicesClient
 from . import document
 from .. import config
 
@@ -22,6 +23,42 @@ class ES(document.Document):
 
         self.es_index = config.ES_INDEX
         self.es = config.ES
+
+    @staticmethod
+    def create_table():
+        """
+        Cria índice no Elastic Search
+        """
+        options = {
+            "settings": {
+                "number_of_shards": "5",
+                "number_of_replicas": "1",
+                "analysis.analyzer.default.filter.0": "lowercase",
+                "analysis.analyzer.default.filter.1": "asciifolding",
+                "analysis.analyzer.default.tokenizer": "standard",
+                "analysis.analyzer.default.type": "custom",
+                "analysis.filter.pt_stemmer.type": "stemmer",
+                "analysis.filter.pt_stemmer.name": "portuguese"
+            }
+        }
+        result = config.ES.index(
+            index=config.ES_INDEX,
+            doc_type=config.ES_INDEX,
+            body=options
+        )
+
+        return result
+
+    @staticmethod
+    def drop_table():
+        """
+        Apaga índice no Elastic Search
+        """
+        result = config.ES.index.delete(
+            index=config.ES_INDEX
+        )
+
+        return result
 
     @staticmethod
     def get_all():
