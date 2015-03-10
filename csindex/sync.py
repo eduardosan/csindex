@@ -10,6 +10,7 @@ from .model import es
 from .model import cs
 from elasticsearch.exceptions import NotFoundError
 from cassandra import InvalidRequest
+from multiprocessing import Pool
 
 log = logging.getLogger()
 
@@ -120,10 +121,16 @@ class Sync(Daemon):
         log.info("Iniciando módulo de sincronia ES e Cassandra")
         while True:
             log.info("Iniciando sincronia no Elastic Search")
-            self.process_es()
+            try:
+                self.process_es()
+            except Exception as e:
+                log.critical(str(e))
 
             log.info("Iniciando sincronia do Cassandra")
-            self.process_cassandra()
+            try:
+                self.process_cassandra()
+            except Exception as e:
+                log.critical(str(e))
 
             # Tempo de espera
             log.info("Execução finalizada. Esperando %s segundos", config.TIMER)
