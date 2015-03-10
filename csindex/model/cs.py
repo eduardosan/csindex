@@ -1,7 +1,8 @@
 #!/usr/env python
 # -*- coding: utf-8 -*-
 __author__ = 'eduardo'
-
+import time
+import datetime
 import logging
 import time
 import json
@@ -27,6 +28,32 @@ class CS(document.Document):
         self.session = config.session
         self.session.row_factory = dict_factory
         self.es_index = config.ES_INDEX
+
+    @property
+    def document_date(self):
+        """
+        Data do documento
+        """
+        return self._document_date
+
+    @document_date.setter
+    def document_date(self, value):
+        """
+        A data não pode ser nula
+        :return:
+        """
+        try:
+            dt = datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
+
+            # Converte pra inteiro e adiciona os microsgundos
+            dt_int = int(dt.strftime("%s")) * 1000000
+            value = dt_int + dt.microsecond
+        except ValueError as e:
+            log.debug(str(e))
+        except TypeError as e:
+            log.debug(str(e))
+
+        self._document_date = value
 
     @staticmethod
     def get_all():
@@ -70,7 +97,10 @@ class CS(document.Document):
         Get document on Cassandra
         :return: dict with document data
         """
-        cql = "SELECT content FROM {} WHERE id_doc = '{}' LIMIT 1".format(self.es_index, self.document_id)
+        cql = "SELECT content, id_doc as document_id FROM {} WHERE id_doc = '{}' LIMIT 1".format(
+            self.es_index,
+            self.document_id
+        )
         res = self.session.execute(cql)
 
         if res is not None and len(res) > 0:
@@ -116,12 +146,28 @@ class CS(document.Document):
 
         :return:
         """
+        content = json.dumps(self.content)
+
         cql = """
             UPDATE {}
-            SET content = {}
-            WHERE  id_doc= '{}'
-            """.format(self.es_index, self.content, self.document_id)
+            SET content = '{}'
+            WHERE  id_doc = '{}'
+            """.format(self.es_index, content, self.document_id)
 
         result = self.session.execute(cql)
 
         return result
+
+    def get_datetime(self):
+        """
+        GEt date as python datetime object
+        :return:
+        """
+        if isinstance(self.document_date, time.struct_time):
+            return self.document_date
+
+        s, ms = divmod(int(self.document_date), 1000000)
+        value = datetime.datetime.fromtimestamp(s)
+        value = value.replace(microsecond=ms)
+
+        return value

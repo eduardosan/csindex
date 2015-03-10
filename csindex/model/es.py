@@ -4,6 +4,7 @@ __author__ = 'eduardo'
 import logging
 import uuid
 import datetime
+import time
 from elasticsearch.client import IndicesClient
 from . import document
 from .. import config
@@ -59,6 +60,11 @@ class ES(document.Document):
         """
         if value is None:
             value = datetime.datetime.now()
+        elif isinstance(value, int):
+            print(value)
+            s, ms = divmod(value, 1000000)
+            value = datetime.datetime.fromtimestamp(s)
+            value = value.replace(microsecond=ms)
 
         self._document_date = value
 
@@ -77,6 +83,13 @@ class ES(document.Document):
                 "analysis.analyzer.default.type": "custom",
                 "analysis.filter.pt_stemmer.type": "stemmer",
                 "analysis.filter.pt_stemmer.name": "portuguese"
+            },
+            "mappings": {
+                "document": {
+                    "_timestamp": {
+                        "enabled": "true"
+                    }
+                }
             }
         }
         result = config.ES.indices.create(
@@ -164,10 +177,13 @@ class ES(document.Document):
 
         :return: Result
         """
+        # O mapping nunca funciona direito
+        content = self.content
+        content['document_date'] = str(self.document_date)
         result = self.es.create(
             index=self.es_index,
             doc_type='document',
-            body=self.content,
+            body=content,
             id=self.document_id,
             timestamp=self.document_date
         )

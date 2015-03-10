@@ -1,16 +1,16 @@
 #!/usr/env python
 # -*- coding: utf-8 -*-
 __author__ = 'eduardo'
-
 import logging
 import time
+import json
+import traceback
 from .daemon import Daemon
 from . import config
 from .model import es
 from .model import cs
 from elasticsearch.exceptions import NotFoundError
 from cassandra import InvalidRequest
-from multiprocessing import Pool
 
 log = logging.getLogger()
 
@@ -48,7 +48,7 @@ class Sync(Daemon):
             for res in hits['hits']:
                 # Now try to find document in Cassandra
                 cassandra = cs.CS(
-                    document_id=int(res['_id']),
+                    document_id=res['_id'],
                     content=res['_source']
                 )
                 cassandra_doc = cassandra.get()
@@ -58,16 +58,19 @@ class Sync(Daemon):
                     cassandra.add()
                 else:
                     # Check which is newer
-                    if cassandra.document_date > res['_source']['document_date']:
+                    es_obj = es.ES(
+                        document_id=cassandra_doc['document_id'],
+                        content=json.loads(cassandra_doc['content']),
+                        document_date=cassandra_doc['document_date']
+                    )
+                    cas_date = cassandra.get_datetime()
+                    log.debug("Data do ES: %s | Data do Cassandra: %s", es_obj.document_date, cas_date)
+                    if cas_date > es_obj.document_date:
                         log.info("Documento do Cassandra mais atual. Adicionando %s no ES", res['_id'])
-                        es_obj = es.ES(
-                            document_id=cassandra_doc['document_id'],
-                            content=cassandra_doc['content'],
-                            document_date=cassandra_doc['document_date']
-                        )
                         es_obj.update()
                     else:
                         log.info("Documento do ES mais atual ou data igual. Atualiza %s no cassandra", res['_id'])
+                        del es_obj
                         cassandra.update()
 
         return True
@@ -92,7 +95,8 @@ class Sync(Daemon):
                 # Busca primeiro no ES
                 es_obj = es.ES(
                     document_id=elm['document_id'],
-                    content=elm['content']
+                    content=json.loads(elm['content']),
+                    document_date=elm['document_date']
                 )
                 es_doc = es_obj.get()
                 if es_doc is None:
@@ -100,16 +104,19 @@ class Sync(Daemon):
                     es_obj.add()
                 else:
                     # Verifica o mais atual
-                    if es_obj.document_date >= elm['document_date']:
+                    cassandra = cs.CS(
+                        document_id=es_doc['_id'],
+                        document_date=es_doc['_source']['document_date'],
+                        content=es_doc['_source']
+                    )
+                    cas_date = cassandra.get_datetime()
+                    log.debug("Data do ES: %s | Data do Cassandra %s", es_obj.document_date, cas_date)
+                    if es_obj.document_date >= cas_date:
                         log.info("Documento do ES mais atual ou igual. Adicionando %s no Cassandra", elm['document_id'])
-                        cassandra = cs.CS(
-                            document_id=es_doc['_id'],
-                            document_date=es_doc['_source']['document_date'],
-                            content=es_doc['_source']
-                        )
                         cassandra.update()
                     else:
                         log.info("Documento do Cassandra mais atual. Atualiza %s no ES", elm['document_id'])
+                        del cassandra
                         es_obj.update()
 
         return True
@@ -125,12 +132,14 @@ class Sync(Daemon):
                 self.process_es()
             except Exception as e:
                 log.critical(str(e))
+                log.critical(traceback.format_exc())
 
             log.info("Iniciando sincronia do Cassandra")
             try:
                 self.process_cassandra()
             except Exception as e:
                 log.critical(str(e))
+                log.critical(traceback.format_exc())
 
             # Tempo de espera
             log.info("Execução finalizada. Esperando %s segundos", config.TIMER)
