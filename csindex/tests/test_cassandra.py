@@ -96,6 +96,15 @@ class TestCassandra(unittest.TestCase):
         result = doc2.get()
         self.assertIsNotNone(result)
 
+        # Testa documento que não existe
+        id3 = uuid.uuid4()
+        doc3 = cs.CS(
+            content={'teste': 12345},
+            document_id=id3
+        )
+        result = doc3.get()
+        self.assertIsNone(result)
+
         # lista registros
         result = cs.CS.get_all()
         self.assertIs(type(result), list)
