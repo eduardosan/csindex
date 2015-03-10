@@ -102,5 +102,17 @@ curl -XGET 'http://localhost:9200/doc/document/02117321-a40b-40a1-8b54-faee7fb4e
 * Agora teste o contrário
 
 <pre>
+curl -XPUT 'http://edusantos.no-ip.biz:9200/doc_teste/document/02117321-a40b-40a1-8b54-faee7fb4e6a5?pretty&timestamp=201503-09T23:21:36.072007' -d '{
+  "teste": 123
+}'
+</pre>
 
+* Em caso de dúvidas é possível verificar no log (/srv/csindex/csindex.log):
+
+<pre>
+01:54:18 INFO  [root][MainThread] Documento do ES mais atual ou data igual. Atualiza 02117321-a40b-40a1-8b54-faee7fb4e6a5 no cassandra
+01:54:18 INFO  [root][MainThread] Iniciando sincronia do Cassandra
+01:54:18 DEBUG [root][MainThread] Data do ES: 2015-03-10 01:54:18.936000 | Data do Cassandra 2015-03-10 00:10:10.719132
+01:54:18 INFO  [root][MainThread] Documento do ES mais atual ou igual. Adicionando 02117321-a40b-40a1-8b54-faee7fb4e6a5 no Cassandra
+01:54:18 INFO  [root][MainThread] Execução finalizada. Esperando 300 segundos
 </pre>
