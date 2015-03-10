@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 __author__ = 'eduardo'
 import logging
+import uuid
+import datetime
 from elasticsearch.client import IndicesClient
 from . import document
 from .. import config
@@ -24,6 +26,42 @@ class ES(document.Document):
         self.es_index = config.ES_INDEX
         self.es = config.ES
 
+    @property
+    def document_id(self):
+        """
+        ID do document
+        """
+        return self._document_id
+
+    @document_id.setter
+    def document_id(self, value):
+        """
+        Convert uuid to str
+        :param value: Received value
+        """
+        if type(value) == type(uuid.uuid4()):
+            value = str(value)
+
+        self._document_id = value
+
+    @property
+    def document_date(self):
+        """
+        Data do documento
+        """
+        return self._document_date
+
+    @document_date.setter
+    def document_date(self, value):
+        """
+        A data não pode ser nula
+        :return:
+        """
+        if value is None:
+            value = datetime.datetime.now()
+
+        self._document_date = value
+
     @staticmethod
     def create_table():
         """
@@ -41,9 +79,8 @@ class ES(document.Document):
                 "analysis.filter.pt_stemmer.name": "portuguese"
             }
         }
-        result = config.ES.index(
+        result = config.ES.indices.create(
             index=config.ES_INDEX,
-            doc_type=config.ES_INDEX,
             body=options
         )
 
@@ -54,7 +91,7 @@ class ES(document.Document):
         """
         Apaga índice no Elastic Search
         """
-        result = config.ES.index.delete(
+        result = config.ES.indices.delete(
             index=config.ES_INDEX
         )
 
@@ -67,14 +104,21 @@ class ES(document.Document):
 
         :return: ES response
         """
+        es = config.ES
+
+        # Necessário dar um referesh no índice antes
+        es.indices.refresh(index=config.ES_INDEX)
+
         query = {
-            "match_all": {}
+            "query": {
+                "match_all": {}
+            }
         }
 
-        es = config.ES
+
         response = es.search(
             index=config.ES_INDEX,
-            body={"query": query}
+            body=query
         )
         return response
 
@@ -85,39 +129,23 @@ class ES(document.Document):
         :return: Dict with document
         """
         # Query for id field in element
-        query = {
-            "query": {
-                "query_string": {
-                    "default_field": "id",
-                    "query": self.document_id
-                }
-            },
-            "size": "1"
-        }
+        # query = {
+        #    "query": {
+        #        "query_string": {
+        #            "default_field": "_id",
+        #            "query": self.document_id
+        #        }
+        #    },
+        #    "size": "1"
+        # }
 
-        response = self.es.search(
+        response = self.es.get(
             index=self.es_index,
-            body={"query": query}
+            id=self.document_id,
+            doc_type='document'
         )
 
-        # Now we have to parse the result back to package dict
-        hits = response.get('hits')
-        resources = dict()
-        for res in hits['hits']:
-            # Store it in extras
-            resources = res
-
-            # Return only first item
-            break
-
-        # Verifica se houve algum resultado
-        if resources:
-            self.document_date = resources['_source']['document_date']
-
-            return resources
-        else:
-            # Return empty dict if it's not found
-            return None
+        return response
 
     def add(self):
         """
@@ -126,9 +154,11 @@ class ES(document.Document):
         :return: Result
         """
         result = self.es.create(
-            index=self.es,
+            index=self.es_index,
             doc_type='document',
-            body=self.content
+            body=self.content,
+            id=self.document_id,
+            timestamp=self.document_date
         )
 
         return result
@@ -142,7 +172,9 @@ class ES(document.Document):
         result = self.es.update(
             index=self.es_index,
             doc_type='document',
-            body=self.content
+            body=self.content,
+            id=self.document_id,
+            timestamp=self.document_date
         )
 
         return result
