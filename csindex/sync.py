@@ -8,6 +8,8 @@ from .daemon import Daemon
 from . import config
 from .model import es
 from .model import cs
+from elasticsearch.exceptions import NotFoundError
+from cassandra import InvalidRequest
 
 log = logging.getLogger()
 
@@ -31,7 +33,15 @@ class Sync(Daemon):
         Regra: o mais atual sempre ganha
         :return:
         """
-        response = es.ES.get_all()
+        try:
+            response = es.ES.get_all()
+        except NotFoundError as e:
+            log.debug("Índice não existe no Elastic Search. Criando...")
+            es.ES.create_table()
+
+            log.debug("Índice do Elastic Search criado com sucesso. Finalizando...")
+            return True
+
         hits = response.get('hits')
         if hits is not None:
             for res in hits['hits']:
@@ -66,7 +76,15 @@ class Sync(Daemon):
         """
         Processa documentos do Cassandra
         """
-        response = cs.CS.get_all()
+        try:
+            response = cs.CS.get_all()
+        except InvalidRequest as e:
+            log.debug("Tabela do Cassandra não existe. Criando...")
+            cs.CS.create_table()
+
+            log.debug("Tabela criada com sucesso. Finalizando...")
+            return True
+
         if type(response) == list and len(response) > 0:
             # Processa somente se houve respostas
             for elm in response:

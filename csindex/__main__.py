@@ -13,7 +13,7 @@ log = logging.getLogger()
 
 if __name__ == "__main__":
 
-    daemon = sync.Sync(config.PIDFILE_PATH)
+    daemon = sync.Sync(pidfile=config.PIDFILE_PATH)
 
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:

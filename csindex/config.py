@@ -1,7 +1,7 @@
 #!/usr/env python
 # -*- coding: utf-8 -*-
 __author__ = 'eduardo'
-
+import logging.config
 import configparser
 from cassandra.cluster import Cluster
 from elasticsearch import Elasticsearch
@@ -24,6 +24,9 @@ def setup_config(ini_file='production.ini'):
 
     config = configparser.ConfigParser()
     config.read(INI_FILE)
+
+    # Logging
+    logging.config.fileConfig(INI_FILE)
 
     # Daemon configuration
     PIDFILE_PATH = config.get('Daemon', 'pidfile_path')
